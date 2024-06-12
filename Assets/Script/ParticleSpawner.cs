@@ -21,6 +21,7 @@ public class ParticleSpawner : MonoBehaviour
         }
     }
 
+
     IEnumerator SpawnParticlesWithLoopDelay(int count, float delay)
     {
         for (int i = 0; i < count; i++)

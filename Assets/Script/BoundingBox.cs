@@ -46,7 +46,7 @@ public class BoundingBox : MonoBehaviour
     void OnDrawGizmos()
     {
         Gizmos.color = Color.green;
-        Gizmos.DrawWireCube(center, new Vector3(width, height, 0));
+        Gizmos.DrawWireCube(new Vector2(0,0), new Vector3(width, height, 0));
     }
 
 }
