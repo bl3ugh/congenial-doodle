@@ -152,7 +152,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 10c836cca3c663d47980fa91d36b0840, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  CellNumber: 0
 --- !u!4 &290133397
 Transform:
   m_ObjectHideFlags: 0
@@ -341,13 +340,17 @@ MonoBehaviour:
   speed: {x: 0, y: 0}
   position: {x: 0, y: 0}
   gravity: 0
-  radius: 1
-  diameter: 2
-  cellSizeToParticle: 2.71
-  cellSize: 5.42
-  height: 187.06
-  width: 343.01
-  damping: 1
+  radius: 0.1
+  diameter: 0.2
+  cellSizeToParticle: 1
+  cellSize: 0.2
+  amount: 5117
+  height: 105.3
+  width: 173.9
+  wallRestitution: 1
+  particleRestitution: 1
+  frictionCoefficient: 0.01
+  fixedDeltaTime: 0.002
 --- !u!4 &1191824251
 Transform:
   m_ObjectHideFlags: 0
