@@ -30,9 +30,9 @@ public class ParticleManager : MonoBehaviour
     private float particleRestitution;
     private float frictionCoefficient;
     private float gravity;
-    private float fixedDeltaTime;
+    private int stepAmount;
     public void Initialize(ParticleSpawner spawner, BoundingBox boundingBox, GridManager gridManager,
-     float wallRestitution, int amount, float particleRestitution,float frictionCoefficient,float gravity,float fixedDeltaTime)
+     float wallRestitution, int amount, float particleRestitution,float frictionCoefficient,float gravity, int stepAmount)
     {
         this.wallRestitution = wallRestitution;
         this.boundingBox = boundingBox;
@@ -41,7 +41,7 @@ public class ParticleManager : MonoBehaviour
         this.particleRestitution = particleRestitution;
         this.frictionCoefficient = frictionCoefficient;
         this.gravity = gravity;
-        this.fixedDeltaTime = fixedDeltaTime;
+        this.stepAmount = stepAmount;
 
         particleSpawner = spawner;
         halfBoundings = new Vector2(boundingBox.getWidth() / 2, boundingBox.getHeight() / 2);
@@ -51,11 +51,13 @@ public class ParticleManager : MonoBehaviour
         cellFirstOccurence = new int[gridManager.GetNumberOfCells()];
         emptyParticleCellNumber();
         emptyCellFirstOccurence();
+
+        Application.targetFrameRate = 30;
     }
 
 
     public void reInitialize(float wallRestitution, BoundingBox boundingBox, GridManager gridManager,
-     float particleRestitution,float frictionCoefficient,float gravity,float fixedDeltaTime)
+     float particleRestitution,float frictionCoefficient,float gravity, int stepAmount)
     {
         this.wallRestitution = wallRestitution;
         this.boundingBox = boundingBox;
@@ -63,7 +65,7 @@ public class ParticleManager : MonoBehaviour
         this.halfBoundings = new Vector2(boundingBox.getWidth() / 2, boundingBox.getHeight() / 2);
         this.frictionCoefficient = frictionCoefficient;
         this.gravity = gravity;
-        this.fixedDeltaTime = fixedDeltaTime;
+        this.stepAmount = stepAmount;
 
         particleCellNumber = new (int, int)[numberOfParticles];
         cellFirstOccurence = new int[gridManager.GetNumberOfCells()];
@@ -82,46 +84,48 @@ public class ParticleManager : MonoBehaviour
             cellFirstOccurence[i] = -1;
         }
     }
-    
-    private float accumulator = 0.0f;
 
     void Update()
+{
+// Calculate the delta time for each sub-step
+    float subStepDeltaTime = Time.fixedDeltaTime / stepAmount;
+
+    // Perform physics updates with sub-steps
+    for (int i = 0; i < stepAmount; i++)
     {
+        emptyParticleCellNumber();
+        emptyCellFirstOccurence();
 
-            emptyParticleCellNumber();
-            emptyCellFirstOccurence();
-
-            ApplyGravity(); 
-            UpdateGridPosition();
-            ResolveCollisions();
-
-            foreach (Particle particle in particles)
-            {
-                // Update particle positions and ensure they are within boundaries
-                particle.UpdateDeets();
-            }
-
-        
+        ApplyGravity(subStepDeltaTime);
+        UpdateGridPosition();
+        ResolveCollisions(subStepDeltaTime);
     }
 
+    // Update particle details after physics calculations
+    foreach (Particle particle in particles)
+    {
+        particle.UpdateDeets();
+    }
+}
+
     // Apply gravity to all particles
-    private void ApplyGravity()
+    private void ApplyGravity(float subStepDeltaTime)
     {
         foreach (Particle particle in particles)
         {
-            Vector2 newSpeed = particle.GetSpeed() + new Vector2(0,gravity * Time.deltaTime);
+            Vector2 newSpeed = particle.GetSpeed() + new Vector2(0, gravity * subStepDeltaTime);
             particle.SetSpeed(newSpeed);
         }
     }
 
-    public void ResolveCollisions()
+    public void ResolveCollisions(float subStepDeltaTime)
     {
         if (particleSpawner != null)
         {
             List<Particle> particles = particleSpawner.GetParticles();
 
-            ResolveWallCollisions();
-            ResolveParticleCollisionsSolid();
+            ResolveWallCollisions(subStepDeltaTime); // Scale wall collisions by sub-step time
+            ResolveParticleCollisionsSolid(subStepDeltaTime); // Scale particle collisions by sub-step time
         }
     }
 
@@ -150,7 +154,7 @@ public class ParticleManager : MonoBehaviour
         }
     }
 
-    private void ResolveWallCollisions()
+    private void ResolveWallCollisions(float subStepDeltaTime)
     {
         foreach (Particle particle in particles)
         {
@@ -173,12 +177,16 @@ public class ParticleManager : MonoBehaviour
                 particle.SetSpeed(speed);
                 particle.SetPosition(position);
             }
+
+            // Update the position by the velocity scaled by sub-step time
+            position += speed * subStepDeltaTime;
+            particle.SetPosition(position);
         }
     }
 
-    private void ResolveParticleCollisionsSolid()
+    private void ResolveParticleCollisionsSolid(float subStepDeltaTime)
     {
-        float maxSpeed = 60.0f; 
+        float maxSpeed = 1000.0f;
 
         foreach ((int, int) entry in particleCellNumber)
         {
@@ -186,28 +194,27 @@ public class ParticleManager : MonoBehaviour
             int cellNumber = entry.Item2;
             Particle particleMain = particles[particleNumber];
             List<int> cellsToCheck = gridManager.GetPossibleAdjacentCells(cellNumber);
-            Vector2 averageDirection = new Vector2(0, 0);
+
             foreach (int cell in cellsToCheck)
             {
                 if (cellFirstOccurence[cell] != -1)
                 {
                     int firstParticleInCell = cellFirstOccurence[cell];
                     int increment = 0;
-                    
+
                     while (true)
                     {
                         if (firstParticleInCell + increment < particleCellNumber.Length)
                         {
                             int particleNumber2 = particleCellNumber[firstParticleInCell + increment].Item1;
                             int cellNumber2 = particleCellNumber[firstParticleInCell + increment].Item2;
-                            
+
                             if (cellNumber2 == cell)
                             {
                                 if (particleNumber != particleNumber2)
                                 {
                                     Particle particleBitch = particles[particleNumber2];
-                                    
-                                    //averageDirection += particleBitch.GetPosition() - particleMain.GetPosition();
+
                                     if (CheckCollision(particleMain, particleBitch))
                                     {
                                         float distance = Vector2.Distance(particleMain.GetPosition(), particleBitch.GetPosition());
@@ -225,27 +232,24 @@ public class ParticleManager : MonoBehaviour
                                             // Apply positional correction to prevent overlap
                                             particleMain.SetPosition(particleMain.GetPosition() - correction);
                                             particleBitch.SetPosition(particleBitch.GetPosition() + correction);
-                                              // Check if the particles are within the boundaries after the correction
+
+                                            // Check if the particles are within the boundaries after the correction
                                             particleMain.SetPosition(CheckBoundary(particleMain.GetPosition(), particleMain.GetRadius()));
                                             particleBitch.SetPosition(CheckBoundary(particleBitch.GetPosition(), particleBitch.GetRadius()));
+
                                             // Calculate relative velocity in the direction of the normal
                                             Vector2 relativeVelocity = particleBitch.GetSpeed() - particleMain.GetSpeed();
                                             float relativeNormalVelocity = Vector2.Dot(relativeVelocity, normal);
 
-                                            // Compute impulse scalar with restitution
+                                            // Compute impulse scalar with restitution and scale by sub-step time
                                             float impulseScalar = -(1 + particleRestitution) * relativeNormalVelocity / 2;
-                                            Vector2 impulse = impulseScalar * normal;
+                                            Vector2 impulse = impulseScalar * normal ; // Scale impulse by sub-step time
 
                                             // Apply the impulse to adjust velocities
                                             particleMain.SetSpeed(CapVelocity(particleMain.GetSpeed() - impulse, maxSpeed));
                                             particleBitch.SetSpeed(CapVelocity(particleBitch.GetSpeed() + impulse, maxSpeed));
 
-                                            // Apply friction proportional to the speed and a friction coefficient
-                                            Vector2 frictionForceMain = frictionCoefficient * particleMain.GetSpeed() * particleMain.GetRadius();
-                                            Vector2 frictionForceBitch = frictionCoefficient * particleBitch.GetSpeed() * particleBitch.GetRadius();
 
-                                            particleMain.SetSpeed(CapVelocity(particleMain.GetSpeed() - frictionForceMain, maxSpeed));
-                                            particleBitch.SetSpeed(CapVelocity(particleBitch.GetSpeed() - frictionForceBitch, maxSpeed));
                                         }
                                     }
                                 }
@@ -261,21 +265,12 @@ public class ParticleManager : MonoBehaviour
                         }
                         increment++;
                     }
-                    //add some push force away from the average direction
-                    particleMain.AddSpeed(pushForce(averageDirection));
+
                 }
             }
         }
     }
 
-    private void ResolveParticleCollisionsFluid(){
-        //using push force
-    }
-    //complete
-    private Vector2 pushForce(Vector2 averageDirection)
-    {
-       return averageDirection.normalized * 0.1f; 
-    }
     private Vector2 CheckBoundary(Vector2 position, float radius)
     {
         if (Mathf.Abs(position.x) + radius > halfBoundings.x)
@@ -290,7 +285,6 @@ public class ParticleManager : MonoBehaviour
 
         return position;
     }
-
     private Vector2 CapVelocity(Vector2 speed, float maxSpeed)
     {
         if (speed.magnitude > maxSpeed)

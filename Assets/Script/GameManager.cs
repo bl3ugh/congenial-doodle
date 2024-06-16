@@ -23,7 +23,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private float wallRestitution = 0.9f;
     [SerializeField] private float particleRestitution = 0.9f;
     [SerializeField] private float frictionCoefficient = 0.01f;
-    [SerializeField] private float fixedDeltaTime = 0.02f;
+    [SerializeField] private int stepAmount = 1;
     private Particle particle;
     void Start()
     {
@@ -44,7 +44,7 @@ public class GameManager : MonoBehaviour
         boundingBox.Initialize(width, height);
 
         // Initialize the particle manager
-        particleManager.Initialize(spawner,boundingBox,gridManager,wallRestitution,amount,particleRestitution,frictionCoefficient,gravity,fixedDeltaTime);
+        particleManager.Initialize(spawner,boundingBox,gridManager,wallRestitution,amount,particleRestitution,frictionCoefficient,gravity,stepAmount);
 
         // Initialize the default particle prefab
         particle.Initialize(speed, position, radius);
@@ -66,14 +66,19 @@ public class GameManager : MonoBehaviour
         {
             cellSizeToParticle = 0.01f;
         }
-        cellSize = diameter * cellSizeToParticle;
         updateDiamRad();
-
         updateBoundingBox(width, height);
 
         updateParticleManager(wallRestitution, boundingBox, particleRestitution, frictionCoefficient);
 
         updateParticle(radius, gravity);
+        
+        cellSize = diameter * cellSizeToParticle;
+        
+
+        
+
+
 
         updateGridManager(cellSize, width, height);
     }
@@ -90,7 +95,7 @@ public class GameManager : MonoBehaviour
     }
 
     public void updateParticleManager(float newDamping, BoundingBox newBoundingBox, float particleRestitution, float frictionCoefficient){
-        particleManager.reInitialize(newDamping, newBoundingBox,gridManager, particleRestitution, frictionCoefficient,gravity,fixedDeltaTime);
+        particleManager.reInitialize(newDamping, newBoundingBox,gridManager, particleRestitution, frictionCoefficient,gravity,stepAmount);
     }
 
     public void updateBoundingBox(float newWidth, float newHeight){
